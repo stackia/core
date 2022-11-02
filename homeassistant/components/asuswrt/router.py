@@ -56,7 +56,7 @@ DEFAULT_NAME = "Asuswrt"
 KEY_COORDINATOR = "coordinator"
 KEY_SENSORS = "sensors"
 
-SCAN_INTERVAL = timedelta(seconds=30)
+SCAN_INTERVAL = timedelta(seconds=1)
 
 SENSORS_TYPE_BYTES = "sensors_bytes"
 SENSORS_TYPE_COUNT = "sensors_count"
@@ -93,7 +93,7 @@ class AsusWrtSensorDataHandler:
     async def _get_bytes(self) -> dict[str, Any]:
         """Fetch byte information from the router."""
         try:
-            datas = await self._api.async_get_bytes_total()
+            datas = await self._api.async_get_bytes_total(False)
         except (OSError, ValueError) as exc:
             raise UpdateFailed(exc) from exc
 
@@ -102,7 +102,7 @@ class AsusWrtSensorDataHandler:
     async def _get_rates(self) -> dict[str, Any]:
         """Fetch rates information from the router."""
         try:
-            rates = await self._api.async_get_current_transfer_rates()
+            rates = await self._api.async_get_current_transfer_rates(False)
         except (OSError, ValueError) as exc:
             raise UpdateFailed(exc) from exc
 
@@ -172,6 +172,7 @@ class AsusWrtDevInfo:
         self._name = name
         self._ip_address: str | None = None
         self._last_activity: datetime | None = None
+        self._rssi: int | None = None
         self._connected = False
 
     def update(self, dev_info: WrtDevice | None = None, consider_home: int = 0) -> None:
@@ -182,6 +183,7 @@ class AsusWrtDevInfo:
                 self._name = dev_info.name or self._mac.replace(":", "_")
             self._ip_address = dev_info.ip
             self._last_activity = utc_point_in_time
+            self._rssi = dev_info.rssi
             self._connected = True
 
         elif self._connected:
@@ -190,6 +192,7 @@ class AsusWrtDevInfo:
                 and (utc_point_in_time - self._last_activity).total_seconds()
                 < consider_home
             )
+            self._rssi = None
             self._ip_address = None
 
     @property
@@ -211,6 +214,11 @@ class AsusWrtDevInfo:
     def ip_address(self) -> str | None:
         """Return device ip address."""
         return self._ip_address
+
+    @property
+    def rssi(self) -> int | None:
+        """Return device RSSI level."""
+        return self._rssi
 
     @property
     def last_activity(self) -> datetime | None:
@@ -315,7 +323,7 @@ class AsusWrtRouter:
         new_device = False
         _LOGGER.debug("Checking devices for ASUS router %s", self._host)
         try:
-            api_devices = await self._api.async_get_connected_devices()
+            api_devices = await self._api.async_get_connected_devices(False)
         except OSError as exc:
             if not self._connect_error:
                 self._connect_error = True

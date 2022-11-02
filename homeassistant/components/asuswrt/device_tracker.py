@@ -95,7 +95,7 @@ class AsusWrtDevice(ScannerEntity):
     def async_on_demand_update(self) -> None:
         """Update state."""
         self._device = self._router.devices[self._device.mac]
-        self._attr_extra_state_attributes = {}
+        self._attr_extra_state_attributes = {"rssi": self._device.rssi}
         if self._device.last_activity:
             self._attr_extra_state_attributes[
                 "last_time_reachable"
